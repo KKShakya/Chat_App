@@ -1,5 +1,8 @@
+
 const catchAsyncError = require("../middlewares/catchAsyncError");
 const ErrorHandler = require("../utils/errorHandler");
+const userModel = require("../models/user");
+const sendToken = require("../utils/sendToken");
 
 const Signup = catchAsyncError(async (req,res,next)=>{
 
@@ -7,17 +10,17 @@ const Signup = catchAsyncError(async (req,res,next)=>{
 
    if(!name || !email || !password){
    //using our errorhandler class
-    return next(new ErrorHandler("Please Fill All the fields"),400);
+    return next(new ErrorHandler("Please fill all the fields",400));
    }
 
-    const user = await userModel.findOne({email});
+    let user = await userModel.findOne({email});
 
     if(user){
-      return next(new ErrorHandler("User Already Exist!"),409);
+      return next(new ErrorHandler("User Already Exist",409))
     }
 
-
-     user.create({name,email,password,avatar});
+      // No need to encrypt password here "Pre" will take care of it 
+     user = await userModel.create({name,email,password,avatar});
 
      res.status(200).send({
       success: true,
@@ -30,25 +33,33 @@ const Signup = catchAsyncError(async (req,res,next)=>{
 
 const Login = catchAsyncError(async (req,res,next)=>{
 
-  //  const {email,password} = req.body;
+   const {email,password} = req.body;
+  
 
-  //  if(!email || !password){
-  //  //using our errorhandler class
-  //   return next(new ErrorHandler("Please Fill All the fields"),400);
-  //  }
+   if(!email || !password){
+   //using our errorhandler class
+    return next(new ErrorHandler("Please Fill All the fields"),400);
+   }
 
-  //   const user = await userModel.findOne({email});
+    let user = await userModel.findOne({email});
 
-  //   if(user){
-  //     return next(new ErrorHandler("User does not Exist!"),409);
-  //   }
+    if(!user){
+      return next(new ErrorHandler("Your Email or Password is incorrect"),409);
+    }
     
+    const isMatch = await user.comparePassword(password);
 
+    if(!isMatch){
+      return next(new ErrorHandler("Your Email or Password is incorrect",409))
+    }
 
-     res.status(200).send({
-      success: true,
-      message: "user Logged in successfully"
-     })
+    //will do this all with the help of a function
+    //  res.status(200).send({
+    //   success: true,
+    //   message: "user Logged in successfully"
+    //  })
+
+    sendToken(res,user,`Welcome Back, ${user.name}`)
 
 })
 
